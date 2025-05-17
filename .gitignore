@@ -1,0 +1,15 @@
+cluster-identity.yaml
+new-capi-test.yaml
+temp-secret.yaml
+temp.json
+azure-sp-secret.yaml
+kind-cluster.yaml
+test-sc.yaml
+# external-dns.yaml
+# cert-manager-secret-example.yaml
+# credentials-velero
+velero-store.yaml
+# git-repo-example-secret-yaml
+# example-secret-input.json
+# azure-sp-secret-example.yaml
+# velero-store-secret-example.yaml

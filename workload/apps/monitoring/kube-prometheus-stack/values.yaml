@@ -1,0 +1,280 @@
+kube-prometheus-stack:
+  crds:
+    enabled: true
+
+  defaultRules:
+    create: true
+    rules:
+      windows: false
+
+  global:
+    rbac:
+      create: true
+      createAggregateClusterRoles: false
+      pspEnabled: false
+  prometheus-windows-exporter:
+    prometheus:
+      monitor:
+        enabled: false
+        jobLabel: jobLabel
+
+  ## Configuration for alertmanager
+  ## ref: https://prometheus.io/docs/alerting/alertmanager/
+  ##
+  alertmanager:
+    enabled: false
+
+  kubeApiServer:
+    enabled: true
+    tlsConfig:
+      serverName: kubernetes
+      insecureSkipVerify: false
+    serviceMonitor:
+      enabled: true
+      metricRelabelings:
+        # Drop excessively noisy apiserver buckets.
+        - action: drop
+          regex: (etcd_request|apiserver_request_slo|apiserver_request_sli|apiserver_request)_duration_seconds_bucket;(0\.15|0\.2|0\.3|0\.35|0\.4|0\.45|0\.6|0\.7|0\.8|0\.9|1\.25|1\.5|1\.75|2|3|3\.5|4|4\.5|6|7|8|9|15|20|40|45|50)(\.0)?
+          sourceLabels:
+            - __name__
+            - le
+  kubelet:
+    enabled: true
+    namespace: kube-system
+    serviceMonitor:
+      enabled: true
+      ## Enable scraping /metrics from kubelet's service
+      kubelet: true
+
+  kubeControllerManager:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+
+  coreDns:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+
+  kubeEtcd:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+
+  kubeScheduler:
+    enabled: true
+    service:
+      enabled: true
+    serviceMonitor:
+      enabled: true
+
+  kubeProxy:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+  kubeStateMetrics:
+    enabled: true
+
+  kube-state-metrics:
+    rbac:
+      create: true
+    releaseLabel: true
+    prometheus:
+      monitor:
+        enabled: true
+
+  grafana:
+    enabled: false
+
+  nodeExporter:
+    enabled: true
+
+    resources:
+      limits:
+        cpu: 50m
+        memory: 200Mi
+      requests:
+        cpu: 3m
+        memory: 15Mi
+
+    operatingSystems:
+      linux:
+        enabled: true
+      aix:
+        enabled: true
+      darwin:
+        enabled: true
+
+  prometheus-node-exporter:
+    prometheus:
+      monitor:
+        enabled: true
+    rbac:
+      pspEnabled: false
+
+  prometheusOperator:
+    enabled: true
+    admissionWebhooks:
+      certManager:
+        enabled: true
+    tls:
+      enabled: true
+      # Value must match version names from https://pkg.go.dev/crypto/tls#pkg-constants
+      tlsMinVersion: VersionTLS13
+      # The default webhook port is 10250 in order to work out-of-the-box in GKE private clusters and avoid adding firewall rules.
+      internalPort: 10250
+
+    livenessProbe:
+      enabled: true
+      failureThreshold: 3
+      initialDelaySeconds: 0
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 1
+
+    readinessProbe:
+      enabled: true
+      failureThreshold: 3
+      initialDelaySeconds: 0
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 1
+    networkPolicy:
+      enabled: false
+      flavor: kubernetes
+
+
+    kubeletService:
+      enabled: true
+      namespace: kube-system
+      selector: ""
+      ## Use '{{ template "kube-prometheus-stack.fullname" . }}-kubelet' by default
+      name: ""
+
+    kubeletEndpointsEnabled: true
+    ## Create EndpointSlice objects for kubelet targets.
+    kubeletEndpointSliceEnabled: false
+    serviceMonitor:
+      selfMonitor: true
+
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        cpu: 25m
+        memory: 30Mi
+
+    env:
+      GOGC: "30"
+
+    tolerations:
+    - key: "monitoring"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: "kubernetes.io/hostname"
+              operator: In
+              values:
+              - capi-ha-monitoring000000
+              - capi-ha-monitoring000001
+  prometheus:
+    enabled: true
+    agentMode: false
+
+    networkPolicy:
+      enabled: false
+      flavor: kubernetes
+
+    ingress:
+      enabled: true
+      annotations:
+        prometheus.io/probe: "false"
+        external-dns.alpha.kubernetes.io/ttl: "60"
+        kubernetes.io/ingress.class: "haproxy"
+        cert-manager.io/cluster-issuer: "azure-dns"
+      ingressClassName: "haproxy"
+      hosts:
+        - prometheus.lndbrg.tech
+      tls:
+        - secretName: prometheus-general-tls
+          hosts:
+            - prometheus.lndbrg.tech
+    prometheusSpec:
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: standard
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 10Gi
+
+      additionalScrapeConfigs: |
+        - job_name: 'istiod'
+          kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names:
+              - istio-system
+          relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+            action: keep
+            regex: istiod;http-monitoring
+        - job_name: 'envoy-stats'
+          metrics_path: /stats/prometheus
+          kubernetes_sd_configs:
+          - role: pod
+
+          relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_container_port_name]
+            action: keep
+            regex: '.*-envoy-prom'
+
+      ## Tolerations for use with node taints
+      ## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+      ##
+      tolerations:
+      - key: "monitoring"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+
+      podAntiAffinity: "soft"
+
+      ## If anti-affinity is enabled sets the topologyKey to use for anti-affinity.
+      ## This can be changed to, for example, failure-domain.beta.kubernetes.io/zone
+      ##
+      podAntiAffinityTopologyKey: kubernetes.io/hostname
+
+      ## Assign custom affinity rules to the prometheus instance
+      ## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
+      ##
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: "kubernetes.io/hostname"
+                operator: In
+                values:
+                - capi-ha-monitoring000000
+                - capi-ha-monitoring000001
+
+      resources:
+        limits:
+          cpu: 500m
+          memory: 1Gi
+        requests:
+          cpu: 100m
+          memory: 400Mi
+
+      #  emptyDir:
+      #    medium: Memory

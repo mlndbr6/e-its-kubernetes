@@ -1,0 +1,126 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-specific-kube-system
+  namespace: kube-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-prometheus-stack
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: argocd
+    - from:
+      - ipBlock:
+          cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 53
+    - from:
+        - ipBlock:
+            cidr: 192.168.0.0/16
+        - ipBlock:
+            cidr: 10.0.0.0/22
+      ports:
+        - protocol: TCP
+          port: 10356
+        - protocol: TCP
+          port: 10256
+        - protocol: TCP
+          port: 10268
+        - protocol: TCP
+          port: 7788
+        - protocol: TCP
+          port: 29604
+        - protocol: TCP
+          port: 29602
+        - protocol: TCP
+          port: 29605
+        - protocol: TCP
+          port: 29603
+        - protocol: TCP
+          port: 6443
+        - protocol: TCP
+          port: 2379
+        - protocol: TCP
+          port: 2380
+        - protocol: TCP
+          port: 10250
+        - protocol: TCP
+          port: 10259
+        - protocol: TCP
+          port: 10257
+        - protocol: TCP
+          port: 10256
+        - protocol: TCP
+          port: 30000
+          endPort: 32767
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-prometheus-stack
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: argocd
+    - to:
+      - ipBlock:
+          cidr: 192.168.0.0/16
+      - ipBlock:
+          cidr: 10.0.0.0/22
+      ports:
+        - protocol: TCP
+          port: 10356
+        - protocol: TCP
+          port: 10256
+        - protocol: TCP
+          port: 10268
+        - protocol: TCP
+          port: 7788
+        - protocol: TCP
+          port: 29604
+        - protocol: TCP
+          port: 29602
+        - protocol: TCP
+          port: 29605
+        - protocol: TCP
+          port: 29603
+        - protocol: TCP
+          port: 6443
+        - protocol: TCP
+          port: 2379
+        - protocol: TCP
+          port: 2380
+        - protocol: TCP
+          port: 10250
+        - protocol: TCP
+          port: 10259
+        - protocol: TCP
+          port: 10257
+        - protocol: TCP
+          port: 10256
+        - protocol: TCP
+          port: 30000
+          endPort: 32767
+    - to:
+      - ipBlock:
+          cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 53

@@ -1,0 +1,14 @@
+apiVersion: v2
+name: argocd-argocd
+description: A chart for Argo CD installation (used for Argo CD to manage itself)
+
+type: application
+
+version: 7.8.25
+
+appVersion: "v2.14.10"
+
+dependencies:
+- name: argo-cd
+  version: 7.8.25
+  repository: https://argoproj.github.io/argo-helm

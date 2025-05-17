@@ -1,0 +1,295 @@
+velero:
+  nameOverride: ""
+  fullnameOverride: ""
+  # https://velero.io/docs/v1.6/customize-installation/#customize-resource-requests-and-limits
+  resources:
+    requests:
+      cpu: 300m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  initContainers:
+  - name: velero-velero-plugin-for-microsoft-azure
+    image: velero/velero-plugin-for-microsoft-azure:v1.11.0
+    imagePullPolicy: IfNotPresent
+    volumeMounts:
+      - mountPath: /target
+        name: plugins
+    resources:
+      requests:
+        cpu: 300m
+        memory: 128Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+
+  # Resource requests/limits to specify for the upgradeCRDs job pod. Need to be adjusted by user accordingly.
+  upgradeJobResources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi
+
+  podSecurityContext:
+    fsGroup: 1337
+
+  # Container Level Security Context for the 'velero' container of the Velero deployment. Optional.
+  # See: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
+      add: []
+    readOnlyRootFilesystem: true
+
+  livenessProbe:
+    httpGet:
+      path: /metrics
+      port: http-monitoring
+      scheme: HTTP
+    initialDelaySeconds: 10
+    periodSeconds: 30
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 5
+
+  readinessProbe:
+    httpGet:
+      path: /metrics
+      port: http-monitoring
+      scheme: HTTP
+    initialDelaySeconds: 10
+    periodSeconds: 30
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 5
+
+  tolerations:
+  - key: "storage"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: "kubernetes.io/hostname"
+            operator: In
+            values:
+            - capi-ha-storage000000
+            - capi-ha-storage000001
+
+  metrics:
+    enabled: true
+    scrapeInterval: 60s
+    scrapeTimeout: 30s
+
+
+    podAnnotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "8085"
+      prometheus.io/path: "/metrics"
+
+    nodeAgentPodMonitor:
+      autodetect: true
+      enabled: false
+
+    prometheusRule:
+      autodetect: true
+      enabled: false
+
+  configuration:
+    # See https://velero.io/docs/v1.6/api-types/backupstoragelocation/
+    backupStorageLocation:
+    - name:
+      provider: azure
+      bucket: velero
+      default:
+      accessMode: ReadWrite
+      credential:
+        name: credentials-velero
+        key: cloud
+      config: 
+        resourceGroup: "mgmt-cluster"
+        storageAccount: "${storageAccountName}"
+
+    volumeSnapshotLocation:
+    - name:
+      provider: azure
+      credential:
+        name: credentials-velero
+        key: cloud
+      config:
+        apiTimeout: 30s
+        resourceGroup: "mgmt-cluster"
+
+
+    uploaderType:
+    # `velero server` default: 1m
+    backupSyncPeriod:
+    # `velero server` default: 4h
+    fsBackupTimeout:
+    # `velero server` default: 30
+    clientBurst:
+    # `velero server` default: 500
+    clientPageSize:
+    # `velero server` default: 20.0
+    clientQPS:
+    # Name of the default backup storage location. Default: default
+    defaultBackupStorageLocation:
+    # The default duration any single item operation can take before timing out, especially important for large volume schedules. Default 4h
+    defaultItemOperationTimeout:
+    # How long to wait by default before backups can be garbage collected. Default: 72h
+    defaultBackupTTL:
+    # Name of the default volume snapshot location.
+    defaultVolumeSnapshotLocations:
+    # `velero server` default: empty
+    disableControllers:
+    # `velero server` default: false
+    disableInformerCache: false
+    # `velero server` default: 1h
+    garbageCollectionFrequency:
+    # `velero server` default: 1
+    itemBlockWorkerCount:
+    # Set log-format for Velero pod. Default: text. Other option: json.
+    logFormat:
+    # Set log-level for Velero pod. Default: info. Other options: debug, warning, error, fatal, panic.
+    logLevel:
+    # The address to expose prometheus metrics. Default: :8085
+    metricsAddress:
+    # Directory containing Velero plugins. Default: /plugins
+    pluginDir:
+    # The address to expose the pprof profiler. Default: localhost:6060
+    profilerAddress:
+    # `velero server` default: false
+    restoreOnlyMode:
+    # `velero server` default: customresourcedefinitions,namespaces,storageclasses,volumesnapshotclass.snapshot.storage.k8s.io,volumesnapshotcontents.snapshot.storage.k8s.io,volumesnapshots.snapshot.storage.k8s.io,persistentvolumes,persistentvolumeclaims,secrets,configmaps,serviceaccounts,limitranges,pods,replicasets.apps,clusterclasses.cluster.x-k8s.io,clusters.cluster.x-k8s.io,clusterresourcesets.addons.cluster.x-k8s.io
+    restoreResourcePriorities:
+    # `velero server` default: 1m
+    storeValidationFrequency:
+    # How long to wait on persistent volumes and namespaces to terminate during a restore before timing out. Default: 10m
+    terminatingResourceTimeout:
+    # Bool flag to configure Velero server to move data by default for all snapshots supporting data movement. Default: false
+    defaultSnapshotMoveData:
+    # Comma separated list of velero feature flags. default: empty
+    # features: EnableCSI
+    features:
+    # Resource requests/limits to specify for the repository-maintenance job. Optional.
+    # https://velero.io/docs/v1.14/repository-maintenance/#resource-limitation
+    repositoryMaintenanceJob:
+      requests:
+      #   cpu: 500m
+      #   memory: 512Mi
+      limits:
+      #   cpu: 1000m
+      #   memory: 1024Mi
+      # Number of latest maintenance jobs to keep for each repository
+      latestJobsCount: 3
+    # `velero server` default: velero
+    namespace:
+    # additional command-line arguments that will be passed to the `velero server`
+    # e.g.: extraArgs: ["--foo=bar"]
+    extraArgs: []
+
+    # additional key/value pairs to be used as environment variables such as "AWS_CLUSTER_NAME: 'yourcluster.domain.tld'"
+    extraEnvVars: {}
+
+    # Set true for backup all pod volumes without having to apply annotation on the pod when used file system backup Default: false.
+    defaultVolumesToFsBackup:
+
+    # How often repository maintain is run for repositories by default.
+    defaultRepoMaintainFrequency:
+
+  ##
+  ## End of backup/snapshot location settings.
+  ##
+
+
+  ##
+  ## Settings for additional Velero resources.
+  ##
+
+  rbac:
+    # Whether to create the Velero role and role binding to give all permissions to the namespace to Velero.
+    create: true
+    # Whether to create the cluster role binding to give administrator permissions to Velero
+    clusterAdministrator: true
+    # Name of the ClusterRole.
+    clusterAdministratorName: cluster-admin
+
+  # Information about the Kubernetes service account Velero uses.
+  serviceAccount:
+    server:
+      create: true
+      name:
+      annotations:
+      labels:
+      imagePullSecrets: []
+      # - registrySecretName
+
+  # Info about the secret to be used by the Velero deployment, which
+  # should contain credentials for the cloud provider IAM account you've
+  # set up for Velero.
+  credentials:
+    useSecret: true
+    # Name of the secret to create if `useSecret` is true and `existingSecret` is empty
+    # Name of a pre-existing secret (if any) in the Velero namespace
+    # that should be used to get IAM account credentials. Optional.
+    existingSecret: credentials
+
+  # Whether to create backupstoragelocation crd, if false => do not create a default backup location
+  backupsEnabled: true
+  # Whether to create volumesnapshotlocation crd, if false => disable snapshot feature
+  snapshotsEnabled: true
+
+  # Whether to deploy the node-agent daemonset.
+  deployNodeAgent: false
+
+  nodeAgent:
+    podVolumePath: /var/lib/kubelet/pods
+    pluginVolumePath: /var/lib/kubelet/plugins
+    resources:
+      requests:
+        cpu: 100m
+        memory: 200Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+    tolerations:
+    - key: "storage"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: "kubernetes.io/hostname"
+              operator: In
+              values:
+              - capi-ha-storage000000
+              - capi-ha-storage000001
+
+  schedules:
+    mybackup:
+      disabled: false
+      labels:
+        env: capi-ha
+      annotations:
+        env: capi-ha
+      schedule: "33 * * * *"
+      useOwnerReferencesInBackup: false
+      paused: false
+      skipImmediately: false
+      template:
+        ttl: "240h"
+        storageLocation: default

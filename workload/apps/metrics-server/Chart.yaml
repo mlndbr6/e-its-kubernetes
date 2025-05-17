@@ -1,0 +1,11 @@
+apiVersion: v2
+name: metrics-server
+description: A chart for metrics-server deployment with dependencies (kube-state-metrics, Prometheus node exporter, prometheus rules and scrape configurations)
+type: application
+version: 3.12.2
+appVersion: 3.12.2
+
+dependencies:
+- name: metrics-server
+  version: 3.12.2
+  repository: https://kubernetes-sigs.github.io/metrics-server/

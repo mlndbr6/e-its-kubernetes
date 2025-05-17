@@ -1,0 +1,11 @@
+apiVersion: v2
+name: velero
+description: A chart for Velero deployment for Kubernetes resources and volume backup and restore solution (including automatic scheduling for backups)
+type: application
+version: 9.0.4
+appVersion: "9.0.4"
+
+dependencies:
+- name: velero
+  version: 9.0.4
+  repository: https://vmware-tanzu.github.io/helm-charts/

@@ -1,0 +1,53 @@
+ambient:
+  global:
+    variant: distroless
+
+  istiod:
+    enabled: true
+    profile: ambient
+    tolerations:
+    - key: "ingress"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: "kubernetes.io/hostname"
+              operator: In
+              values:
+              - capi-ha-ingress000000
+              - capi-ha-ingress000001
+    resources:
+      requests:
+        cpu: 10m
+        memory: 80Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  ztunnel:
+    profile: ambient
+    resourceName: ztunnel
+    resources:
+      requests:
+        cpu: 3m
+        memory: 5Mi
+      limits:
+        cpu: 100m
+        memory: 384Mi
+
+  cni:
+    ambient:
+      ipv6: false
+      dnsCapture: true
+    profile: ambient
+    resources:
+      requests:
+        cpu: 5m
+        memory: 25Mi
+      limits:
+        cpu: 100m
+        memory: 384Mi

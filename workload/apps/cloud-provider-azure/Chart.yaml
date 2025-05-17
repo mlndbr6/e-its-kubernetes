@@ -1,0 +1,11 @@
+apiVersion: v2
+name: cloud-provider-azure
+description: A chart for Cloud provider Azure installation and configuration
+type: application
+version: 1.32.4
+appVersion: 1.32.4
+
+dependencies:
+- name: cloud-provider-azure
+  version: 1.32.4
+  repository: https://raw.githubusercontent.com/kubernetes-sigs/cloud-provider-azure/master/helm/repo

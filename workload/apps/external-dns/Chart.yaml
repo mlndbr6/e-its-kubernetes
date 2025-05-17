@@ -1,0 +1,11 @@
+apiVersion: v2
+name: external-dns
+description: A chart for External DNS installation and configuration
+type: application
+version: 8.7.11
+appVersion: 8.7.11
+
+dependencies:
+- name: external-dns
+  version: 8.7.11
+  repository: https://charts.bitnami.com/bitnami

@@ -1,0 +1,85 @@
+
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-networkpolicy-existing
+  annotations:
+    policies.kyverno.io/title: Generate NetworkPolicy to Existing Namespaces
+    policies.kyverno.io/category: Other
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Namespace, NetworkPolicy
+    kyverno.io/kyverno-version: "1.14.1"
+    kyverno.io/kubernetes-version: "1.32"
+    policies.kyverno.io/description: >-
+      A NetworkPolicy is often a critical piece when provisioning new Namespaces,
+      but there may be existing Namespaces which also need the same resource. Creating
+      each one individually or manipulating each Namespace in order to trigger creation
+      is additional overhead. This policy creates a new NetworkPolicy for existing
+      Namespaces which results in a default deny behavior and labels it with created-by=kyverno.
+spec:
+  generateExisting: true
+  rules:
+  - name: generate-existing-networkpolicy
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    generate:
+      kind: NetworkPolicy
+      apiVersion: networking.k8s.io/v1
+      name: default-deny
+      namespace: {{`"{{request.object.metadata.name}}"`}}
+      synchronize: true
+      data:
+        metadata:
+          labels:
+            created-by: kyverno
+        spec:
+          podSelector: {}
+          policyTypes:
+            - Ingress
+            - Egress
+          egress:
+            - to:
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: {{`"{{request.object.metadata.name}}"`}}
+            - to:
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: kube-system
+              ports:
+                - protocol: UDP
+                  port: 53
+                - protocol: TCP # TCP is used for larger DNS responses
+                  port: 53
+            - to:
+              - ipBlock:
+                  cidr: 192.168.0.0/16
+              - ipBlock:
+                  cidr: 10.0.0.0/22
+              ports:
+                - protocol: TCP
+                  port: 15008
+          ingress:
+            - from:
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: {{`"{{request.object.metadata.name}}"`}}
+            - from:
+              - ipBlock:
+                  cidr: 192.168.0.0/16
+              - ipBlock:
+                  cidr: 10.0.0.0/22
+              ports:
+                - protocol: TCP
+                  port: 15008
+              ports:
+                - protocol: TCP
+                  port: 10250
+            - from:
+              - ipBlock:
+                  cidr: 169.254.7.127/32
+

@@ -1,0 +1,37 @@
+
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-peerauthentication
+  annotations:
+    policies.kyverno.io/title: Generate PeerAuthentication for each namespace 
+    policies.kyverno.io/category: Other
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Namespace, PeerAuthentication
+    kyverno.io/kyverno-version: "1.14.1"
+    kyverno.io/kubernetes-version: "1.32"
+    policies.kyverno.io/description: >-
+      Generate Istio PeerAuthentication resources
+spec:
+  generateExisting: true
+  rules:
+  - name: generate-peerauthentication
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    generate:
+      kind: PeerAuthentication
+      apiVersion: security.istio.io/v1beta1
+      name: default-deny
+      namespace: {{`"{{request.object.metadata.name}}"`}}
+      synchronize: true
+      data:
+        metadata:
+          labels:
+            created-by: kyverno
+        spec:
+          mtls:
+            mode: PERMISSIVE

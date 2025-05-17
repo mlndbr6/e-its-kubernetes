@@ -1,0 +1,35 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: azure-dns
+    external-dns.alpha.kubernetes.io/ttl: '60'
+    kubernetes.io/ingress.class: haproxy
+  labels:
+    app: kiali
+    app.kubernetes.io/instance: kiali
+    app.kubernetes.io/name: kiali
+    app.kubernetes.io/part-of: kiali
+    app.kubernetes.io/version: v2.9.0
+    argocd.argoproj.io/instance: kiali
+    helm.sh/chart: kiali-server-2.9.0
+    version: v2.9.0
+  name: kiali
+  namespace: kiali
+spec:
+  ingressClassName: haproxy
+  rules:
+    - host: kiali.lndbrg.tech
+      http:
+        paths:
+          - backend:
+              service:
+                name: kiali
+                port:
+                  number: 20001
+            path: /kiali
+            pathType: Prefix
+  tls:
+    - hosts:
+        - kiali.lndbrg.tech
+      secretName: kiali-server-tls

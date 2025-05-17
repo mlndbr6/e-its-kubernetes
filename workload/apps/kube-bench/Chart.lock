@@ -1,0 +1,6 @@
+dependencies:
+- name: kube-bench
+  repository: https://raw.githubusercontent.com/deliveryhero/helm-charts/refs/heads/master/
+  version: 0.1.17
+digest: sha256:69702ba8d8b0d7a112468a0143a961aff4c8f9406c3491e54f83d44617a77912
+generated: "2025-05-10T19:03:25.656875+03:00"

@@ -1,0 +1,159 @@
+external-secrets:  
+  global:
+    tolerations:
+    - key: "general"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: "kubernetes.io/hostname"
+              operator: In
+              values:
+              - capi-ha-general000000
+              - capi-ha-general000001
+
+  replicaCount: 1
+  installCRDs: true
+
+  crds:
+    createClusterExternalSecret: true
+    createClusterSecretStore: true
+    createClusterGenerator: true
+    createClusterPushSecret: true
+    createPushSecret: true
+    conversion:
+      enabled: false
+
+  openshiftFinalizers: false
+  createOperator: true
+
+  concurrent: 1
+  log:
+    level: info
+    timeEncoding: epoch
+
+  resources:
+    requests:
+      cpu: 5m
+      memory: 32Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  serviceMonitor:
+    enabled: true
+    namespace: "kube-prometheus-stack"
+    additionalLabels: {}
+    interval: 60s
+    scrapeTimeout: 30s
+  metrics:
+    listen:
+      port: 8080
+
+  tolerations:
+    - key: "general"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: "kubernetes.io/hostname"
+            operator: In
+            values:
+            - capi-ha-general000000
+            - capi-ha-general000001
+
+  webhook:
+    create: true
+    certCheckInterval: "5m"
+    lookaheadInterval: ""
+    replicaCount: 1
+    log:
+      level: info
+      timeEncoding: epoch
+
+    tolerations:
+      - key: "general"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: "kubernetes.io/hostname"
+              operator: In
+              values:
+              - capi-ha-general000000
+              - capi-ha-general000001
+
+    metrics:
+      listen:
+        port: 8080
+
+
+    readinessProbe:
+      address: ""
+      port: 8081
+
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 512Mi
+
+    service:
+      enabled: true
+
+  certController:
+    # -- Specifies whether a certificate controller deployment be created.
+    create: true
+    requeueInterval: "5m"
+    replicaCount: 1
+    log:
+      level: info
+      timeEncoding: epoch
+
+    tolerations:
+      - key: "general"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: "kubernetes.io/hostname"
+              operator: In
+              values:
+              - capi-ha-general000000
+              - capi-ha-general000001
+
+    metrics:
+      listen:
+        port: 8080
+
+    readinessProbe:
+      address: ""
+      port: 8081
+
+    resources:
+      requests:
+        cpu: 10m
+        memory: 24Mi
+      limits:
+        cpu: 100m
+        memory: 384Mi

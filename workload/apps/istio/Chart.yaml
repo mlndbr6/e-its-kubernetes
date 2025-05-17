@@ -1,0 +1,13 @@
+
+
+apiVersion: v2
+name: istio-ambient
+description: A chart for Istio Ambient Mesh and its dependencies (base, istiod, cni, ztunnel) installation
+type: application
+version: 1.26.0-rc.0
+appVersion: "1.26.0-rc.0"
+
+dependencies:
+- name: ambient
+  version: 1.26.0-rc.0
+  repository: https://istio-release.storage.googleapis.com/charts

@@ -1,0 +1,895 @@
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: capi-ha
+  namespace: capi-ha
+  labels:
+    eitsCluster: enabled
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+      - 192.168.0.0/16
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+    kind: KubeadmControlPlane
+    name: capi-ha-control-plane
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: AzureCluster
+    name: capi-ha
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureCluster
+metadata:
+  name: capi-ha
+  namespace: capi-ha
+spec:
+  bastionSpec:
+    azureBastion:
+      enableTunneling: true
+      name: capi-ha-cluster-azure-bastion
+      publicIP:
+        name: capi-ha-cluster-azure-bastion-pip
+      sku: Standard
+      subnet:
+        cidrBlocks:
+        - 10.0.0.128/26
+        name: AzureBastionSubnet
+        role: bastion
+  identityRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: AzureClusterIdentity
+    name: capi-identity
+  location: northeurope
+  networkSpec:
+    apiServerLB:
+      type: Internal
+      frontendIPs:
+      - name: capi-ha-cluster-internal-lb-frontEnd
+        privateIP: 10.0.0.20
+      name: capi-ha-cluster-internal-lb
+      sku: Standard
+    controlPlaneOutboundLB:
+      frontendIPsCount: 1
+    nodeOutboundLB:
+      frontendIPsCount: 1
+    privateDNSZoneName: lndbrg.tech
+    subnets:
+    - cidrBlocks:
+      - 10.0.0.0/27
+      name: control-plane-subnet
+      role: control-plane
+    - cidrBlocks:
+      - 10.0.0.64/26
+      name: node-subnet
+      role: node
+    - cidrBlocks:
+      - 10.0.0.192/26
+      name: isolated-node-subnet
+      role: node
+      securityGroup:
+        name: nsg-isolated-node
+        securityRules:
+          - name: allow-intra-subnet
+            description: Allow all traffic within isolated-node-subnet
+            priority: 100
+            direction: "Inbound"
+            action: "Allow"
+            protocol: "*"
+            source: "10.0.0.192/26"
+            sourcePorts: "*"
+            destination: "10.0.0.192/26"
+            destinationPorts: "*"
+          - name: allow-control-plane
+            description: Allow traffic from control-plane-subnet
+            priority: 110
+            direction: "Inbound"
+            action: "Allow"
+            protocol: "*"
+            source: "10.0.0.0/27"
+            sourcePorts: "*"
+            destination: "10.0.0.192/26"
+            destinationPorts: "*"
+          - name: allow-ssh-from-bastion
+            description: Allow SSH from Azure Bastion subnet
+            priority: 120
+            direction: "Inbound"
+            action: "Allow"
+            protocol: Tcp
+            source: "10.0.0.128/26"
+            sourcePorts: "*"
+            destination: "10.0.0.192/26"
+            destinationPorts: '22'
+          - name: allow-azure-loadbalancer
+            description: Allow LoadBalancer traffic
+            priority: 130
+            direction: "Inbound"
+            action: "Allow"
+            protocol: "*"
+            source: "AzureLoadBalancer"
+            sourcePorts: "*"
+            destination: "*"
+            destinationPorts: "*"
+          - name: deny-vnet-to-isolated-node
+            description: Deny VNet inbound traffic
+            priority: 140
+            direction: "Inbound"
+            action: "Deny"
+            protocol: "*"
+            source: "VirtualNetwork"
+            sourcePorts: "*"
+            destination: "VirtualNetwork"
+            destinationPorts: "*"
+    vnet:
+      cidrBlocks:
+      - 10.0.0.0/22
+      name: cluster-vnet
+      peerings:
+      - resourceGroup: mgmt-cluster
+        remoteVnetName: mgmt-cluster
+  resourceGroup: capi-ha
+  subscriptionID: ${subscriptionId}
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+kind: KubeadmControlPlane
+metadata:
+  name: capi-ha-control-plane
+  namespace: capi-ha
+spec:
+  kubeadmConfigSpec:
+    clusterConfiguration:
+      apiServer:
+        extraArgs:
+          kubelet-certificate-authority: "/etc/kubernetes/pki/ca.crt"
+          enable-admission-plugins: "AlwaysPullImages,NodeRestriction,EventRateLimit,DenyServiceExternalIPs"
+          disable-admission-plugins: "AlwaysDeny"
+          admission-control-config-file: "/etc/kubernetes/config/AdmissionConfiguration.yaml"
+          encryption-provider-config: "/etc/kubernetes/config/EncryptionConfig.yaml"
+          profiling: "false"
+          audit-log-path: "-"
+          audit-log-maxage: "30"
+          audit-log-maxbackup: "10"
+          audit-log-maxsize: "100"
+          audit-policy-file: "/etc/kubernetes/config/auditlog.yaml"
+          request-timeout: 120s
+          service-account-lookup: "true"
+          tls-cipher-suites: "TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256"
+        extraVolumes:
+        - hostPath: /etc/kubernetes/config/AdmissionConfiguration.yaml
+          mountPath: /etc/kubernetes/config/AdmissionConfiguration.yaml
+          name: admission-config
+          readOnly: true
+        - hostPath: /etc/kubernetes/config/EncryptionConfig.yaml
+          mountPath: /etc/kubernetes/config/EncryptionConfig.yaml
+          name: encryption-config
+          readOnly: true
+        - hostPath: /etc/kubernetes/config/auditlog.yaml
+          mountPath: /etc/kubernetes/config/auditlog.yaml
+          name: auditlog-config
+          readOnly: true
+        - hostPath: /etc/kubernetes/config/eventconfig.yaml
+          mountPath: /etc/kubernetes/config/eventconfig.yaml
+          name: event-config
+          readOnly: true   
+        timeoutForControlPlane: 20m
+      controllerManager:
+        extraArgs:
+          allocate-node-cidrs: "false"
+          cloud-provider: external
+          cluster-name: capi-ha
+          terminated-pod-gc-threshold: "500"
+          profiling: "false"
+      etcd:
+        local:
+          dataDir: /var/lib/etcddisk/etcd
+          extraArgs:
+            quota-backend-bytes: "8589934592"
+      scheduler:
+        extraArgs:
+          profiling: "false"
+    diskSetup:
+      filesystems:
+      - device: /dev/disk/azure/scsi1/lun0
+        extraOpts:
+        - -E
+        - lazy_itable_init=1,lazy_journal_init=1
+        filesystem: ext4
+        label: etcd_disk
+      - device: ephemeral0.1
+        filesystem: ext4
+        label: ephemeral0
+        replaceFS: ntfs
+      partitions:
+      - device: /dev/disk/azure/scsi1/lun0
+        layout: true
+        overwrite: false
+        tableType: gpt
+    files:
+    - content: "marko ALL = (ALL) NOPASSWD: ALL"
+      owner: root:root
+      path: /etc/sudoers.d/marko
+      permissions: "0440"
+    - content: |
+        apiVersion: apiserver.config.k8s.io/v1
+        kind: AdmissionConfiguration
+        plugins:
+          - name: EventRateLimit
+            path: eventconfig.yaml
+      path: /etc/kubernetes/config/AdmissionConfiguration.yaml
+      owner: "root:root"
+      permissions: "0600"
+    - content: |
+        apiVersion: eventratelimit.admission.k8s.io/v1alpha1
+        kind: Configuration
+        limits:
+          - type: Namespace
+            qps: 50
+            burst: 100
+            cacheSize: 2000
+          - type: User
+            qps: 10
+            burst: 50
+      path: /etc/kubernetes/config/eventconfig.yaml
+      owner: "root:root"
+      permissions: "0600"
+    - content: |
+        apiVersion: apiserver.config.k8s.io/v1
+        kind: EncryptionConfiguration
+        resources:
+          - resources:
+              - secrets
+            providers:
+              - secretbox:
+                  keys:
+                    - name: key1
+                      secret: [REDACTED]
+              - identity: {} #fallback
+      path: /etc/kubernetes/config/EncryptionConfig.yaml
+      owner: "root:root"
+      permissions: "0600"
+    - content: |
+        apiVersion: audit.k8s.io/v1 # This is required.
+        kind: Policy
+        omitStages:
+          - "RequestReceived"
+        rules:
+          # Log Pod, StatefulSet, Deployment and Daemonset changes at RequestResponse level
+          - level: RequestResponse
+            resources:
+            - group: ""
+              resources: ["pods", "deployments", "statefulsets", "daemonsets"]
+
+          - level: RequestResponse
+            resources:
+            - group: "rbac.authorization.k8s.io"
+              # Resource "pods" doesn't match requests to any subresource of pods,
+              # which is consistent with the RBAC policy.
+              resources: ["clusterroles", "clusterrolebindings"]
+
+          # Log "pods/log", "pods/status" at Metadata level
+          - level: Metadata
+            resources:
+            - group: ""
+              resources: ["pods/log", "pods/status", "pods/exec", "pods/portforward", "pods/proxy", "services/proxy"]
+
+          - level: Metadata
+            resources:
+            - resources: ["secrets", "configmaps", "tokenreviews"]
+      path: /etc/kubernetes/config/auditlog.yaml
+      owner: "root:root"
+      permissions: "0600"
+    - content: |
+        {
+          "apiVersion": "kubelet.config.k8s.io/v1beta1",
+          "kind": "KubeletConfiguration",
+          podPidsLimit: 4096,
+          serverTLSBootstrap: true,
+          tlsCipherSuites: [TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+            TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+            TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+            TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+            TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+            TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+            TLS_RSA_WITH_AES_256_GCM_SHA384,
+            TLS_RSA_WITH_AES_128_GCM_SHA256
+          ],
+        }
+      path: /etc/kubernetes/patches/kubeletconfiguration0+strategic.json
+      owner: "root:root"
+      permissions: "0644"
+    - contentFrom:
+        secret:
+          key: control-plane-azure.json
+          name: capi-ha-control-plane-azure-json
+      owner: root:root
+      path: /etc/kubernetes/azure.json
+      permissions: "0644"
+    users:
+    - name: marko
+      sshAuthorizedKeys:
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOn+0Nwb3ZFzDnmMY6nO9FQ6XOPT+F8N8zSZ/vb8tKxj"
+    initConfiguration:
+      nodeRegistration:
+        kubeletExtraArgs:
+          cloud-provider: external
+        name: '{{ ds.meta_data["local_hostname"] }}'
+      patches:
+        directory: /etc/kubernetes/patches
+    joinConfiguration:
+      nodeRegistration:
+        kubeletExtraArgs:
+          cloud-provider: external
+        name: '{{ ds.meta_data["local_hostname"] }}'
+      patches:
+        directory: /etc/kubernetes/patches
+    mounts:
+    - - LABEL=etcd_disk
+      - /var/lib/etcddisk
+    preKubeadmCommands:
+      - if [ -f /tmp/kubeadm.yaml ] || [ -f /run/kubeadm/kubeadm.yaml ]; then echo '127.0.0.1   apiserver.lndbrg.tech apiserver' >> /etc/hosts; fi
+    postKubeadmCommands:
+      - if [ -f /tmp/kubeadm-join-config.yaml ] || [ -f /run/kubeadm/kubeadm-join-config.yaml ]; then echo '127.0.0.1   apiserver.lndbrg.tech apiserver' >> /etc/hosts; fi
+    verbosity: 10
+  machineTemplate:
+    infrastructureRef:
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+      kind: AzureMachineTemplate
+      name: capi-ha-control-plane
+  replicas: 3
+  version: v1.32.0
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+kind: KubeadmConfig
+metadata:
+  name: capi-ha-ingress
+  namespace: capi-ha
+spec:
+      files:
+      - content: "marko ALL = (ALL) NOPASSWD: ALL"
+        owner: root:root
+        path: /etc/sudoers.d/marko
+        permissions: "0440"
+      - content: |
+          {
+            "apiVersion": "kubelet.config.k8s.io/v1beta1",
+            "kind": "KubeletConfiguration",
+            podPidsLimit: 4096,
+            serverTLSBootstrap: true,
+            tlsCipherSuites: [TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+              TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+              TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+              TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+              TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+              TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+              TLS_RSA_WITH_AES_256_GCM_SHA384,
+              TLS_RSA_WITH_AES_128_GCM_SHA256
+            ],
+          }
+        path: /etc/kubernetes/patches/kubeletconfiguration0+strategic.json
+        owner: "root:root"
+        permissions: "0644"
+      - contentFrom:
+          secret:
+            key: worker-node-azure.json
+            name: capi-ha-ingress-azure-json
+        owner: root:root
+        path: /etc/kubernetes/azure.json
+        permissions: "0644"
+      users:
+      - name: marko
+        sshAuthorizedKeys:
+        - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOn+0Nwb3ZFzDnmMY6nO9FQ6XOPT+F8N8zSZ/vb8tKxj"
+      joinConfiguration:
+        nodeRegistration:
+          kubeletExtraArgs:
+            cloud-provider: external
+            register-with-taints: "ingress=true:NoSchedule"
+          name: '{{ ds.meta_data["local_hostname"] }}'
+        patches:
+          directory: /etc/kubernetes/patches
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: capi-ha-ingress
+  namespace: capi-ha
+  annotations:
+    cluster.x-k8s.io/cluster-name: capi-ha
+    cluster.x-k8s.io/cluster-api-provider-azure: "true"
+    cluster.x-k8s.io/cluster-api-provider-azure-machinepool: "true"
+spec:
+  clusterName: capi-ha
+  failureDomains:
+      - "1"
+      - "2"
+  replicas: 2
+  template:
+    spec:
+      bootstrap:
+        configRef:
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+          kind: KubeadmConfig
+          name: capi-ha-ingress
+      clusterName: capi-ha
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: AzureMachinePool
+        name: capi-ha-ingress
+      version: v1.32.0
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureMachinePool
+metadata:
+  name: capi-ha-ingress
+  namespace: capi-ha
+spec:
+  location: northeurope
+  strategy:
+    rollingUpdate:
+      deletePolicy: Oldest
+      maxSurge: 25%
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+      osDisk:
+        diskSizeGB: 50
+        osType: Linux
+        managedDisk:
+          storageAccountType: Premium_LRS
+      securityProfile:
+        encryptionAtHost: true   
+      subnetName: node-subnet
+      sshPublicKey: "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSU9uKzBOd2IzWkZ6RG5tTVk2bk85RlE2WE9QVCtGOE44elNaL3ZiOHRLeGogcmVkbW9uZFxtbGluZGViZXJnQENQQy1tbGluZC1RVUxJOQ=="
+      vmSize: Standard_F2s_v2
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+kind: KubeadmConfig
+metadata:
+  name: capi-ha-general
+  namespace: capi-ha
+spec:
+      files:
+      - content: "marko ALL = (ALL) NOPASSWD: ALL"
+        owner: root:root
+        path: /etc/sudoers.d/marko
+        permissions: "0440"
+      - content: |
+          {
+            "apiVersion": "kubelet.config.k8s.io/v1beta1",
+            "kind": "KubeletConfiguration",
+            podPidsLimit: 4096,
+            serverTLSBootstrap: true,
+            tlsCipherSuites: [TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+              TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+              TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+              TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+              TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+              TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+              TLS_RSA_WITH_AES_256_GCM_SHA384,
+              TLS_RSA_WITH_AES_128_GCM_SHA256
+            ],
+          }
+        path: /etc/kubernetes/patches/kubeletconfiguration0+strategic.json
+        owner: "root:root"
+        permissions: "0644"
+      - contentFrom:
+          secret:
+            key: worker-node-azure.json
+            name: capi-ha-general-azure-json
+        owner: root:root
+        path: /etc/kubernetes/azure.json
+        permissions: "0644"
+      users:
+      - name: marko
+        sshAuthorizedKeys:
+        - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOn+0Nwb3ZFzDnmMY6nO9FQ6XOPT+F8N8zSZ/vb8tKxj"
+      joinConfiguration:
+        nodeRegistration:
+          kubeletExtraArgs:
+            cloud-provider: external
+          name: '{{ ds.meta_data["local_hostname"] }}'
+        patches:
+          directory: /etc/kubernetes/patches
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: capi-ha-general
+  namespace: capi-ha
+spec:
+  clusterName: capi-ha
+  failureDomains:
+      - "1"
+      - "2"
+  replicas: 2
+  template:
+    spec:
+      bootstrap:
+        configRef:
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+          kind: KubeadmConfig
+          name: capi-ha-general
+      clusterName: capi-ha
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: AzureMachinePool
+        name: capi-ha-general
+      version: v1.32.0
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureMachinePool
+metadata:
+  name: capi-ha-general
+  namespace: capi-ha
+spec:
+  location: northeurope
+  strategy:
+    rollingUpdate:
+      deletePolicy: Oldest
+      maxSurge: 25%
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+      osDisk:
+        diskSizeGB: 50
+        osType: Linux
+        managedDisk:
+          storageAccountType: Premium_LRS
+      subnetName: node-subnet
+      sshPublicKey: "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSU9uKzBOd2IzWkZ6RG5tTVk2bk85RlE2WE9QVCtGOE44elNaL3ZiOHRLeGogcmVkbW9uZFxtbGluZGViZXJnQENQQy1tbGluZC1RVUxJOQ=="
+      vmSize: Standard_D2as_v5
+      securityProfile:
+        encryptionAtHost: true
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureMachineTemplate
+metadata:
+  name: capi-ha-control-plane
+  namespace: capi-ha
+spec:
+  template:
+    spec:
+      dataDisks:
+      - diskSizeGB: 100
+        lun: 0
+        nameSuffix: etcddisk
+        managedDisk: 
+          storageAccountType: Premium_LRS
+      osDisk:
+        diskSizeGB: 50
+        osType: Linux
+        managedDisk:
+          storageAccountType: Premium_LRS
+      securityProfile:
+        encryptionAtHost: true
+      sshPublicKey: "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSU9uKzBOd2IzWkZ6RG5tTVk2bk85RlE2WE9QVCtGOE44elNaL3ZiOHRLeGogcmVkbW9uZFxtbGluZGViZXJnQENQQy1tbGluZC1RVUxJOQ=="
+      vmSize: Standard_D2as_v5
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+kind: KubeadmConfig
+metadata:
+  name: capi-ha-monitoring
+  namespace: capi-ha
+spec:
+      files:
+      - content: "marko ALL = (ALL) NOPASSWD: ALL"
+        owner: root:root
+        path: /etc/sudoers.d/marko
+        permissions: "0440"
+      - content: |
+          {
+            "apiVersion": "kubelet.config.k8s.io/v1beta1",
+            "kind": "KubeletConfiguration",
+            podPidsLimit: 4096,
+            serverTLSBootstrap: true,
+            tlsCipherSuites: [TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+              TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+              TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+              TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+              TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+              TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+              TLS_RSA_WITH_AES_256_GCM_SHA384,
+              TLS_RSA_WITH_AES_128_GCM_SHA256
+            ],
+          }
+        path: /etc/kubernetes/patches/kubeletconfiguration0+strategic.json
+        owner: "root:root"
+        permissions: "0644"
+      - contentFrom:
+          secret:
+            key: worker-node-azure.json
+            name: capi-ha-monitoring-azure-json
+        owner: root:root
+        path: /etc/kubernetes/azure.json
+        permissions: "0644"
+      users:
+      - name: marko
+        sshAuthorizedKeys:
+        - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOn+0Nwb3ZFzDnmMY6nO9FQ6XOPT+F8N8zSZ/vb8tKxj"
+      joinConfiguration:
+        nodeRegistration:
+          kubeletExtraArgs:
+            cloud-provider: external
+            register-with-taints: "monitoring=true:NoSchedule"
+          name: '{{ ds.meta_data["local_hostname"] }}'
+        patches:
+          directory: /etc/kubernetes/patches
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: capi-ha-monitoring
+  namespace: capi-ha
+  annotations:
+    cluster.x-k8s.io/cluster-name: capi-ha
+    cluster.x-k8s.io/cluster-api-provider-azure: "true"
+    cluster.x-k8s.io/cluster-api-provider-azure-machinepool: "true"
+spec:
+  clusterName: capi-ha
+  failureDomains:
+      - "1"
+      - "2"
+  replicas: 2
+  template:
+    spec:
+      bootstrap:
+        configRef:
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+          kind: KubeadmConfig
+          name: capi-ha-monitoring
+      clusterName: capi-ha
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: AzureMachinePool
+        name: capi-ha-monitoring
+      version: v1.32.0
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureMachinePool
+metadata:
+  name: capi-ha-monitoring
+  namespace: capi-ha
+spec:
+  location: northeurope
+  strategy:
+    rollingUpdate:
+      deletePolicy: Oldest
+      maxSurge: 25%
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+      osDisk:
+        diskSizeGB: 50
+        osType: Linux
+        managedDisk:
+          storageAccountType: Premium_LRS
+      securityProfile:
+        encryptionAtHost: true
+      subnetName: node-subnet    
+      sshPublicKey: "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSU9uKzBOd2IzWkZ6RG5tTVk2bk85RlE2WE9QVCtGOE44elNaL3ZiOHRLeGogcmVkbW9uZFxtbGluZGViZXJnQENQQy1tbGluZC1RVUxJOQ=="
+      vmSize: Standard_D2as_v5
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+kind: KubeadmConfig
+metadata:
+  name: capi-ha-storage
+  namespace: capi-ha
+spec:
+      files:
+      - content: "marko ALL = (ALL) NOPASSWD: ALL"
+        owner: root:root
+        path: /etc/sudoers.d/marko
+        permissions: "0440"
+      - content: |
+          {
+            "apiVersion": "kubelet.config.k8s.io/v1beta1",
+            "kind": "KubeletConfiguration",
+            podPidsLimit: 4096,
+            serverTLSBootstrap: true,
+            tlsCipherSuites: [TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+              TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+              TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+              TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+              TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+              TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+              TLS_RSA_WITH_AES_256_GCM_SHA384,
+              TLS_RSA_WITH_AES_128_GCM_SHA256
+            ],
+          }
+        path: /etc/kubernetes/patches/kubeletconfiguration0+strategic.json
+        owner: "root:root"
+        permissions: "0644"
+      - contentFrom:
+          secret:
+            key: worker-node-azure.json
+            name: capi-ha-storage-azure-json
+        owner: root:root
+        path: /etc/kubernetes/azure.json
+        permissions: "0644"
+      users:
+      - name: marko
+        sshAuthorizedKeys:
+        - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOn+0Nwb3ZFzDnmMY6nO9FQ6XOPT+F8N8zSZ/vb8tKxj"
+      joinConfiguration:
+        nodeRegistration:
+          kubeletExtraArgs:
+            cloud-provider: external
+            register-with-taints: "storage=true:NoSchedule"
+          name: '{{ ds.meta_data["local_hostname"] }}'
+        patches:
+          directory: /etc/kubernetes/patches
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: capi-ha-storage
+  namespace: capi-ha
+  annotations:
+    cluster.x-k8s.io/cluster-name: capi-ha
+    cluster.x-k8s.io/cluster-api-provider-azure: "true"
+    cluster.x-k8s.io/cluster-api-provider-azure-machinepool: "true"
+spec:
+  clusterName: capi-ha
+  failureDomains:
+      - "1"
+      - "2"
+  replicas: 2
+  template:
+    spec:
+      bootstrap:
+        configRef:
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+          kind: KubeadmConfig
+          name: capi-ha-storage
+      clusterName: capi-ha
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: AzureMachinePool
+        name: capi-ha-storage
+      version: v1.32.0
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureMachinePool
+metadata:
+  name: capi-ha-storage
+  namespace: capi-ha
+spec:
+  location: northeurope
+  strategy:
+    rollingUpdate:
+      deletePolicy: Oldest
+      maxSurge: 25%
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+      osDisk:
+        diskSizeGB: 50
+        osType: Linux
+        managedDisk:
+          storageAccountType: Premium_LRS
+      securityProfile:
+        encryptionAtHost: true
+      subnetName: node-subnet
+      sshPublicKey: "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSU9uKzBOd2IzWkZ6RG5tTVk2bk85RlE2WE9QVCtGOE44elNaL3ZiOHRLeGogcmVkbW9uZFxtbGluZGViZXJnQENQQy1tbGluZC1RVUxJOQ=="
+      vmSize: Standard_E2bs_v5
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+kind: KubeadmConfig
+metadata:
+  name: capi-ha-isolated
+  namespace: capi-ha
+spec:
+      files:
+      - content: "marko ALL = (ALL) NOPASSWD: ALL"
+        owner: root:root
+        path: /etc/sudoers.d/marko
+        permissions: "0440"
+      - content: |
+          {
+            "apiVersion": "kubelet.config.k8s.io/v1beta1",
+            "kind": "KubeletConfiguration",
+            podPidsLimit: 4096,
+            serverTLSBootstrap: true,
+            tlsCipherSuites: [TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+              TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+              TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+              TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+              TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+              TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+              TLS_RSA_WITH_AES_256_GCM_SHA384,
+              TLS_RSA_WITH_AES_128_GCM_SHA256
+            ],
+          }
+        path: /etc/kubernetes/patches/kubeletconfiguration0+strategic.json
+        owner: "root:root"
+        permissions: "0600"
+      - contentFrom:
+          secret:
+            key: worker-node-azure.json
+            name: capi-ha-isolated-azure-json
+        owner: root:root
+        path: /etc/kubernetes/azure.json
+        permissions: "0644"
+      users:
+      - name: marko
+        sshAuthorizedKeys:
+        - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOn+0Nwb3ZFzDnmMY6nO9FQ6XOPT+F8N8zSZ/vb8tKxj"
+      joinConfiguration:
+        nodeRegistration:
+          kubeletExtraArgs:
+            cloud-provider: external
+            register-with-taints: "isolated=true:NoSchedule"
+          name: '{{ ds.meta_data["local_hostname"] }}'
+        patches:
+          directory: /etc/kubernetes/patches
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: capi-ha-isolated
+  namespace: capi-ha
+  annotations:
+    cluster.x-k8s.io/cluster-name: capi-ha
+    cluster.x-k8s.io/cluster-api-provider-azure: "true"
+    cluster.x-k8s.io/cluster-api-provider-azure-machinepool: "true"
+spec:
+  clusterName: capi-ha
+  failureDomains:
+      - "1"
+      - "2"
+  replicas: 2
+  template:
+    spec:
+      bootstrap:
+        configRef:
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+          kind: KubeadmConfig
+          name: capi-ha-isolated
+      clusterName: capi-ha
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: AzureMachinePool
+        name: capi-ha-isolated
+      version: v1.32.0
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureMachinePool
+metadata:
+  name: capi-ha-isolated
+  namespace: capi-ha
+spec:
+  location: northeurope
+  strategy:
+    rollingUpdate:
+      deletePolicy: Oldest
+      maxSurge: 25%
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+      osDisk:
+        diskSizeGB: 50
+        osType: Linux
+        managedDisk:
+          storageAccountType: Premium_LRS
+      securityProfile:
+        encryptionAtHost: true
+      subnetName: isolated-node-subnet
+      sshPublicKey: "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSU9uKzBOd2IzWkZ6RG5tTVk2bk85RlE2WE9QVCtGOE44elNaL3ZiOHRLeGogcmVkbW9uZFxtbGluZGViZXJnQENQQy1tbGluZC1RVUxJOQ=="
+      vmSize: Standard_D2as_v5
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureClusterIdentity
+metadata:
+ labels:
+   clusterctl.cluster.x-k8s.io/move-hierarchy: "true"
+ name: capi-identity
+ namespace: capi-ha
+spec:
+ allowedNamespaces: {}
+ clientID: ${servicePrincipalClientId}
+ clientSecret:
+   name: azure-sp-client
+   namespace: default
+ tenantID: ${tenantID}
+ type: ServicePrincipal

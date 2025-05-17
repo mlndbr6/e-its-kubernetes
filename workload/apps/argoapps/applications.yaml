@@ -1,0 +1,44 @@
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd
+  namespace: argocd
+spec:
+  destination:
+    namespace: argocd
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    helm:
+      valueFiles:
+      - values.yaml
+    path: workload/apps/argocd
+    repoURL: https://github.com/mlndbr6/e-its-kubernetes
+    targetRevision: main
+  syncPolicy:
+    managedNamespaceMetadata:
+      labels:
+        istio.io/dataplane-mode: ambient
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true
+---
+# apiVersion: argoproj.io/v1alpha1
+# kind: Application
+# metadata:
+#   name: app-of-apps
+#   namespace: argocd
+# spec:
+#   destination:
+#     namespace: argocd
+#     server: https://kubernetes.default.svc
+#   project: default
+#   source:
+#     path: workload/apps/argoapps
+#     repoURL: https://github.com/mlndbr6/e-its-kubernetes
+#     targetRevision: main
+#   syncPolicy:
+#     automated:
+#       prune: true

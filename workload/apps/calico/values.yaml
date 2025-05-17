@@ -1,0 +1,40 @@
+# for later patching: kubectl patch felixconfigurations default --type='json' -p='[{"op": "add", "path": "/spec/workloadSourceSpoofing", "value": "Any"}]'
+
+installation:
+  cni:
+    type: Calico
+  calicoNetwork:
+    bgp: Disabled
+    mtu: 1350
+    ipPools:
+    - cidr: 192.168.0.0/16
+      encapsulation: VXLAN
+  enabled: true
+
+apiServer:
+  enabled: true
+
+defaultFelixConfiguration:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 150m
+    memory: 96Mi
+  limits:
+    cpu: 300m
+    memory: 512Mi
+
+# Tolerations for the tigera/operator pod.
+tolerations:
+- effect: NoExecute
+  operator: Exists
+- effect: NoSchedule
+  operator: Exists
+
+tigeraOperator:
+  image: tigera/operator
+  version: v1.36.7
+  registry: quay.io
+calicoctl:
+  image: docker.io/calico/ctl

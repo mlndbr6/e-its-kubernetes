@@ -1,0 +1,7 @@
+apiVersion: v1
+data:
+  azure.json: ${azureJson}
+kind: Secret
+metadata:
+  name: azure-sp-secret
+  namespace: external-dns

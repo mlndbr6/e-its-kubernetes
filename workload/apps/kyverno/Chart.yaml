@@ -1,0 +1,11 @@
+apiVersion: v2
+name: kyverno
+description: A chart for Kyverno deployment for policy management, enforcement, validation and reporting in Kubernetes
+type: application
+version: 3.4.1
+appVersion: 3.4.1
+
+dependencies:
+- name: kyverno
+  version: 3.4.1
+  repository: https://kyverno.github.io/kyverno/

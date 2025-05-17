@@ -1,0 +1,26 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: restart-applications
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: "{{ .Values.schedule }}"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: restart-applications
+          restartPolicy: Never
+          containers:
+            - name: restarter
+              image: bitnami/kubectl:latest
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  {{- range .Values.applications }}
+                  echo "Restarting {{ .resourceType }} {{ .name }} in namespace {{ .namespace }}"
+                  kubectl -n {{ .namespace }} patch {{ .resourceType | lower }} {{ .name }} \
+                    -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}}}}}"
+                  {{- end }}

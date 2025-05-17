@@ -1,0 +1,24 @@
+# This file is a citation file in CFF format.
+cff-version: 1.2.0
+title: E-ITS technical implementation
+message: >-
+  If you use this dataset, please cite it using the metadata
+  from this file.
+type: dataset
+authors:
+  - given-names: Marko
+    family-names: Lindeberg
+    email: marlin@taltech.ee
+repository-code: 'https://github.com/mlndbr6/e-its-kubernetes'
+url: 'https://github.com/mlndbr6/e-its-kubernetes'
+abstract: >-
+  This repository contains Cluster API and Kubernetes
+  resources that can be used to deploy a workload cluster
+  with specific configuration, bootstrap it and deploy
+  necessary resources with Argo CD to comply with E-ITS
+  requirements.
+keywords:
+  - e-its
+  - kubernetes
+  - cluster-api
+license: Apache-2.0

@@ -1,0 +1,6 @@
+cloud-provider-azure:
+  infra:
+    clusterName: capi-ha
+  cloudControllerManager:
+    clusterCIDR: 192.168.0.0/16
+    logVerbosity: 4

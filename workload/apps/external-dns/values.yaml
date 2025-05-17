@@ -1,0 +1,134 @@
+external-dns:  # Copyright Broadcom, Inc. All Rights Reserved.
+  sources:
+    # - crd
+    - service
+    - ingress
+  provider: azure-private-dns
+  containerPorts:
+    http: 7979
+  azure:
+    secretName: "azure-sp-secret"
+    cloud: "PublicCloud"
+    resourceGroup: "capi-ha"
+    tenantId: "f39a45cb-a92c-4626-bade-3a84ef3fb283"
+    subscriptionId: "8ec5a1ea-0c7b-495b-9a82-2a8f97803062"
+    aadClientId: "c21a106f-c44c-4981-bc9e-ee8bdb9c6a41"
+    aadClientSecret: ""
+    useWorkloadIdentityExtension: false
+    useManagedIdentityExtension: false
+    userAssignedIdentityID: ""
+  domainFilters:
+    - "lndbrg.tech"
+    - "*.lndbrg.tech"
+
+  interval: "1m"
+  logLevel: info
+  logFormat: json
+  policy: upsert-only
+  registry: "txt"
+
+  tolerations:
+    - key: "general"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: "kubernetes.io/hostname"
+            operator: In
+            values:
+            - capi-ha-general000000
+            - capi-ha-general000001
+
+  crd:
+    create: false
+  service:
+    enabled: true
+    ports:
+      http: 7979
+
+  networkPolicy:
+
+    enabled: true
+    allowExternal: true
+    allowExternalEgress: false
+    kubeAPIServerPorts: [443, 6443, 8443]
+    extraIngress:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: kube-prometheus-stack
+        ports:
+          - protocol: TCP
+            port: 7909
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: argocd
+      - from:
+          - ipBlock:
+              cidr: 192.168.0.0/16
+          - ipBlock:
+              cidr: 10.0.0.0/22
+        ports:
+          - protocol: TCP
+            port: 15008
+    extraEgress:
+      - to:
+          - ipBlock:
+              cidr: 0.0.0.0/0
+        ports:
+          - protocol: TCP
+            port: 6443
+          - protocol: TCP
+            port: 443
+          - protocol: TCP
+            port: 53
+          - protocol: UDP
+            port: 53
+    ingressNSMatchLabels: {}
+    ingressNSPodMatchLabels: {}
+
+  resources: 
+    requests:
+      cpu: 2m
+      memory: 30Mi
+    limits:
+      cpu: 50m
+      memory: 256Mi
+
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 2
+    successThreshold: 1
+
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+
+  startupProbe:
+    enabled: false
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      namespace: "kube-prometheus-stack"
+      interval: "60s"
+      scrapeTimeout: "30s"

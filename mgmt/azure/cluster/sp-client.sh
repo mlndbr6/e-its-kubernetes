@@ -1,0 +1,2 @@
+# Creates a secret with Service Principal Client Secret for the management cluster. This is needed to authenticate with Azure and manage resources.
+kubectl create secret generic azure-sp-client -n default --from-literal=clientSecret=$AZURE_CLIENT_SECRET

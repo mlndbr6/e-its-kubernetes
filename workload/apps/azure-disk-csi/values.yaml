@@ -1,0 +1,40 @@
+azuredisk-csi-driver:
+  controller:
+    replicas: 2
+    runOnControlPlane: true
+    resources:
+      csiProvisioner:
+        limits:
+          cpu: 500m
+          memory: 500Mi
+        requests:
+          cpu: 10m
+          memory: 20Mi
+      csiAttacher:
+        limits:
+          cpu: 500m
+          memory: 500Mi
+        requests:
+          cpu: 10m
+          memory: 20Mi
+      csiResizer:
+        limits:
+          cpu: 500m
+          memory: 500Mi
+        requests:
+          cpu: 10m
+          memory: 20Mi
+      livenessProbe:
+        limits:
+          memory: 100Mi
+          cpu: 200m
+        requests:
+          cpu: 10m
+          memory: 20Mi
+      azuredisk:
+        limits:
+          cpu: 500m
+          memory: 500Mi
+        requests:
+          cpu: 10m
+          memory: 20Mi

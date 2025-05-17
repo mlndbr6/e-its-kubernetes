@@ -1,0 +1,762 @@
+kyverno:
+  global:
+    nodeSelector: {}
+    tolerations:
+    - key: "monitoring"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
+
+    groups:
+      # -- Install CRDs in group `kyverno.io`
+      kyverno:
+        cleanuppolicies: true
+        clustercleanuppolicies: true
+        clusterpolicies: true
+        globalcontextentries: true
+        policies: true
+        policyexceptions: true
+        updaterequests: true
+        validatingpolicies: true
+
+      # -- Install CRDs in group `policies.kyverno.io`
+      policies:
+        validatingpolicies: true
+        policyexceptions: true
+        imagevalidatingpolicies: true
+
+      # -- Install CRDs in group `reports.kyverno.io`
+      reports:
+        clusterephemeralreports: true
+        ephemeralreports: true
+
+      # -- Install CRDs in group `wgpolicyk8s.io`
+      wgpolicyk8s:
+        clusterpolicyreports: true
+        policyreports: true
+  # Configuration
+  config:
+    resourceFilters:
+      - '[Event,*,*]'
+      - '[*/*,kube-system,*]'
+      - '[*/*,kube-public,*]'
+      - '[*/*,kube-node-lease,*]'
+      - '[Node,*,*]'
+      - '[Node/*,*,*]'
+      - '[APIService,*,*]'
+      - '[APIService/*,*,*]'
+      - '[TokenReview,*,*]'
+      - '[SubjectAccessReview,*,*]'
+      - '[SelfSubjectAccessReview,*,*]'
+      - '[Binding,*,*]'
+      - '[Pod/binding,*,*]'
+      - '[ReplicaSet,*,*]'
+      - '[ReplicaSet/*,*,*]'
+      - '[EphemeralReport,*,*]'
+      - '[ClusterEphemeralReport,*,*]'
+      # exclude resources from the chart
+      - '[ClusterRole,*,{{ template "kyverno.admission-controller.roleName" . }}]'
+      - '[ClusterRole,*,{{ template "kyverno.admission-controller.roleName" . }}:core]'
+      - '[ClusterRole,*,{{ template "kyverno.admission-controller.roleName" . }}:additional]'
+      - '[ClusterRole,*,{{ template "kyverno.background-controller.roleName" . }}]'
+      - '[ClusterRole,*,{{ template "kyverno.background-controller.roleName" . }}:core]'
+      - '[ClusterRole,*,{{ template "kyverno.background-controller.roleName" . }}:additional]'
+      - '[ClusterRole,*,{{ template "kyverno.cleanup-controller.roleName" . }}]'
+      - '[ClusterRole,*,{{ template "kyverno.cleanup-controller.roleName" . }}:core]'
+      - '[ClusterRole,*,{{ template "kyverno.cleanup-controller.roleName" . }}:additional]'
+      - '[ClusterRole,*,{{ template "kyverno.reports-controller.roleName" . }}]'
+      - '[ClusterRole,*,{{ template "kyverno.reports-controller.roleName" . }}:core]'
+      - '[ClusterRole,*,{{ template "kyverno.reports-controller.roleName" . }}:additional]'
+      - '[ClusterRoleBinding,*,{{ template "kyverno.admission-controller.roleName" . }}]'
+      - '[ClusterRoleBinding,*,{{ template "kyverno.background-controller.roleName" . }}]'
+      - '[ClusterRoleBinding,*,{{ template "kyverno.cleanup-controller.roleName" . }}]'
+      - '[ClusterRoleBinding,*,{{ template "kyverno.reports-controller.roleName" . }}]'
+      - '[ServiceAccount,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceAccountName" . }}]'
+      - '[ServiceAccount/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceAccountName" . }}]'
+      - '[ServiceAccount,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.serviceAccountName" . }}]'
+      - '[ServiceAccount/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.serviceAccountName" . }}]'
+      - '[ServiceAccount,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.serviceAccountName" . }}]'
+      - '[ServiceAccount/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.serviceAccountName" . }}]'
+      - '[ServiceAccount,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.serviceAccountName" . }}]'
+      - '[ServiceAccount/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.serviceAccountName" . }}]'
+      - '[Role,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.roleName" . }}]'
+      - '[Role,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.roleName" . }}]'
+      - '[Role,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.roleName" . }}]'
+      - '[Role,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.roleName" . }}]'
+      - '[RoleBinding,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.roleName" . }}]'
+      - '[RoleBinding,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.roleName" . }}]'
+      - '[RoleBinding,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.roleName" . }}]'
+      - '[RoleBinding,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.roleName" . }}]'
+      - '[ConfigMap,{{ include "kyverno.namespace" . }},{{ template "kyverno.config.configMapName" . }}]'
+      - '[ConfigMap,{{ include "kyverno.namespace" . }},{{ template "kyverno.config.metricsConfigMapName" . }}]'
+      - '[Deployment,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.name" . }}]'
+      - '[Deployment/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.name" . }}]'
+      - '[Deployment,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.name" . }}]'
+      - '[Deployment/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.name" . }}]'
+      - '[Deployment,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}]'
+      - '[Deployment/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}]'
+      - '[Deployment,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.name" . }}]'
+      - '[Deployment/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.name" . }}]'
+      - '[Pod,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.name" . }}-*]'
+      - '[Pod/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.name" . }}-*]'
+      - '[Pod,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.name" . }}-*]'
+      - '[Pod/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.name" . }}-*]'
+      - '[Pod,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}-*]'
+      - '[Pod/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}-*]'
+      - '[Pod,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.name" . }}-*]'
+      - '[Pod/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.name" . }}-*]'
+      - '[Job,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}-hook-pre-delete]'
+      - '[Job/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}-hook-pre-delete]'
+      - '[NetworkPolicy,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.name" . }}]'
+      - '[NetworkPolicy/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.name" . }}]'
+      - '[NetworkPolicy,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.name" . }}]'
+      - '[NetworkPolicy/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.name" . }}]'
+      - '[NetworkPolicy,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}]'
+      - '[NetworkPolicy/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}]'
+      - '[NetworkPolicy,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.name" . }}]'
+      - '[NetworkPolicy/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.name" . }}]'
+      - '[PodDisruptionBudget,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.name" . }}]'
+      - '[PodDisruptionBudget/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.name" . }}]'
+      - '[PodDisruptionBudget,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.name" . }}]'
+      - '[PodDisruptionBudget/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.name" . }}]'
+      - '[PodDisruptionBudget,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}]'
+      - '[PodDisruptionBudget/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}]'
+      - '[PodDisruptionBudget,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.name" . }}]'
+      - '[PodDisruptionBudget/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.name" . }}]'
+      - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}]'
+      - '[Service/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}]'
+      - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}-metrics]'
+      - '[Service/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}-metrics]'
+      - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.name" . }}-metrics]'
+      - '[Service/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.background-controller.name" . }}-metrics]'
+      - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}]'
+      - '[Service/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}]'
+      - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}-metrics]'
+      - '[Service/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}-metrics]'
+      - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.name" . }}-metrics]'
+      - '[Service/*,{{ include "kyverno.namespace" . }},{{ template "kyverno.reports-controller.name" . }}-metrics]'
+      - '[ServiceMonitor,{{ if .Values.admissionController.serviceMonitor.namespace }}{{ .Values.admissionController.serviceMonitor.namespace }}{{ else }}{{ template "kyverno.namespace" . }}{{ end }},{{ template "kyverno.admission-controller.name" . }}]'
+      - '[ServiceMonitor,{{ if .Values.admissionController.serviceMonitor.namespace }}{{ .Values.admissionController.serviceMonitor.namespace }}{{ else }}{{ template "kyverno.namespace" . }}{{ end }},{{ template "kyverno.background-controller.name" . }}]'
+      - '[ServiceMonitor,{{ if .Values.admissionController.serviceMonitor.namespace }}{{ .Values.admissionController.serviceMonitor.namespace }}{{ else }}{{ template "kyverno.namespace" . }}{{ end }},{{ template "kyverno.cleanup-controller.name" . }}]'
+      - '[ServiceMonitor,{{ if .Values.admissionController.serviceMonitor.namespace }}{{ .Values.admissionController.serviceMonitor.namespace }}{{ else }}{{ template "kyverno.namespace" . }}{{ end }},{{ template "kyverno.reports-controller.name" . }}]'
+      - '[Secret,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.*]'
+      - '[Secret,{{ include "kyverno.namespace" . }},{{ template "kyverno.cleanup-controller.name" . }}.{{ template "kyverno.namespace" . }}.svc.*]'
+
+    # -- Sets the threshold for the total number of UpdateRequests generated for mutateExisitng and generate policies.
+    updateRequestThreshold: 1000
+    webhooks:
+      namespaceSelector:
+        matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - kube-system
+
+    resourceFiltersExcludeNamespaces: []
+    resourceFiltersExclude:
+      - '[ServiceAccount,kube-system,default]'
+      - '[ServiceAccount/*,kube-system,default]'
+
+    # -- (map) Configures the exposure of individual metrics, by default all metrics and all labels are exported, changing this configuration requires restart of the kyverno admission controller
+    metricsExposure:
+      kyverno_policy_execution_duration_seconds:
+        # bucketBoundaries: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5]
+        disabledLabelDimensions: ["resource_namespace", "resource_request_operation"]
+      kyverno_admission_review_duration_seconds:
+        # enabled: false
+        disabledLabelDimensions: ["resource_namespace"]
+      kyverno_policy_rule_info_total:
+        disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
+      kyverno_policy_results_total:
+        disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
+      kyverno_admission_requests_total:
+        disabledLabelDimensions: ["resource_namespace"]
+      kyverno_cleanup_controller_deletedobjects_total:
+        disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
+
+  features:
+    admissionReports:
+      # -- Enables the feature
+      enabled: true
+    aggregateReports:
+      # -- Enables the feature
+      enabled: true
+    policyReports:
+      # -- Enables the feature
+      enabled: true
+    validatingAdmissionPolicyReports:
+      # -- Enables the feature
+      enabled: false
+    reporting:
+      # -- Enables the feature
+      validate: true
+      # -- Enables the feature
+      mutate: true
+      # -- Enables the feature
+      mutateExisting: true
+      # -- Enables the feature
+      imageVerify: true
+      # -- Enables the feature
+      generate: true
+    autoUpdateWebhooks:
+      # -- Enables the feature
+      enabled: true
+    backgroundScan:
+      # -- Enables the feature
+      enabled: true
+      # -- Number of background scan workers
+      backgroundScanWorkers: 2
+      # -- Background scan interval
+      backgroundScanInterval: 1h
+      # -- Skips resource filters in background scan
+      skipResourceFilters: true
+    configMapCaching:
+      # -- Enables the feature
+      enabled: true
+    deferredLoading:
+      # -- Enables the feature
+      enabled: true
+    dumpPayload:
+      # -- Enables the feature
+      enabled: false
+    forceFailurePolicyIgnore:
+      # -- Enables the feature
+      enabled: false
+    generateValidatingAdmissionPolicy:
+      # -- Enables the feature
+      enabled: false
+    dumpPatches:
+      # -- Enables the feature
+      enabled: false
+    globalContext:
+      # -- Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended)
+      maxApiCallResponseLength: 2000000
+    logging:
+      # -- Logging format
+      format: text
+      # -- Logging verbosity
+      verbosity: 2
+    omitEvents:
+      # -- Events which should not be emitted (possible values `PolicyViolation`, `PolicyApplied`, `PolicyError`, and `PolicySkipped`)
+      eventTypes:
+        - PolicyApplied
+        - PolicySkipped
+        # - PolicyViolation
+        # - PolicyError
+    policyExceptions:
+      enabled: false
+      namespace: ''
+    protectManagedResources:
+      # -- Enables the feature
+      enabled: false
+    registryClient:
+      # -- Allow insecure registry
+      allowInsecure: false
+      # -- Enable registry client helpers
+      credentialHelpers:
+      - default
+      - google
+      - amazon
+      - azure
+      - github
+    ttlController:
+      # -- Reconciliation interval for the label based cleanup manager
+      reconciliationInterval: 1m
+
+  admissionController:
+    rbac:
+      create: true
+      createViewRoleBinding: true
+      viewRoleName: view
+      coreClusterRole:
+        extraResources:
+          - apiGroups:
+              - security.istio.io
+            resources:
+              - peerauthentications
+              - authorizationpolicies
+            verbs:
+              - get
+              - list
+              - create
+              - update
+              - patch
+              - delete
+          - apiGroups:
+              - networking.istio.io
+            resources:
+              - destinationrules
+              - virtualservices
+              - serviceentries
+              - envoyfilters
+            verbs:
+              - get
+              - list
+              - create
+              - update
+              - patch
+              - delete
+          - apiGroups:
+              - networking.k8s.io
+            resources:
+              - ingresses
+              - ingressclasses
+              - networkpolicies
+            verbs:
+              - create
+              - update
+              - patch
+              - delete
+    replicas: 1
+
+    startupProbe:
+      httpGet:
+        path: /health/liveness
+        port: 9443
+        scheme: HTTPS
+      failureThreshold: 20
+      initialDelaySeconds: 2
+      periodSeconds: 6
+
+    livenessProbe:
+      httpGet:
+        path: /health/liveness
+        port: 9443
+        scheme: HTTPS
+      initialDelaySeconds: 15
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 2
+      successThreshold: 1
+
+    readinessProbe:
+      httpGet:
+        path: /health/readiness
+        port: 9443
+        scheme: HTTPS
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 6
+      successThreshold: 1
+
+    tolerations:
+      - key: "monitoring"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+
+    antiAffinity:
+      enabled: true
+
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 1
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                    - admission-controller
+            topologyKey: kubernetes.io/hostname
+
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: "kubernetes.io/hostname"
+            operator: In
+            values:
+            - capi-ha-monitoring000000
+            - capi-ha-monitoring000001
+
+
+    initContainer:
+      resources:
+        limits:
+          cpu: 100m
+          memory: 256Mi
+        requests:
+          cpu: 10m
+          memory: 64Mi
+
+      # -- Container security context
+      securityContext:
+        runAsNonRoot: true
+        privileged: false
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+        seccompProfile:
+          type: RuntimeDefault
+
+    container:
+      resources:
+        limits:
+          memory: 384Mi
+          cpu: 1000m
+        requests:
+          cpu: 100m
+          memory: 128Mi
+
+      securityContext:
+        runAsNonRoot: true
+        privileged: false
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+        seccompProfile:
+          type: RuntimeDefault
+
+
+    service:
+      port: 443
+      type: ClusterIP
+
+    metricsService:
+      create: true
+      port: 8000
+      type: ClusterIP
+
+    networkPolicy:
+      enabled: false
+      ingressFrom: []
+
+    serviceMonitor:
+      enabled: true
+      additionalLabels: {}
+      namespace: ~
+      interval: 60s
+      scrapeTimeout: 30s
+  backgroundController:
+    featuresOverride: {}
+    enabled: true
+    rbac:
+      create: true
+      createViewRoleBinding: true
+      viewRoleName: view
+      coreClusterRole:
+        extraResources:
+          - apiGroups:
+              - security.istio.io
+            resources:
+              - peerauthentications
+              - authorizationpolicies
+            verbs:
+              - get
+              - list
+              - create
+              - update
+              - patch
+              - delete
+          - apiGroups:
+              - networking.istio.io
+            resources:
+              - destinationrules
+              - virtualservices
+              - serviceentries
+              - envoyfilters
+            verbs:
+              - get
+              - list
+              - create
+              - update
+              - patch
+              - delete
+          - apiGroups:
+              - networking.k8s.io
+            resources:
+              - ingresses
+              - ingressclasses
+              - networkpolicies
+            verbs:
+              - create
+              - update
+              - patch
+              - delete
+          - apiGroups:
+              - rbac.authorization.k8s.io
+            resources:
+              - rolebindings
+              - roles
+            verbs:
+              - create
+              - update
+              - patch
+              - delete
+          - apiGroups:
+              - ''
+            resources:
+              - configmaps
+              - resourcequotas
+              - serviceaccounts
+              - limitranges
+            verbs:
+              - create
+              - update
+              - patch
+              - delete
+
+    image:
+      registry: ~
+      defaultRegistry: reg.kyverno.io
+      repository: kyverno/background-controller
+      tag: ~
+      pullPolicy: IfNotPresent
+
+    replicas: 1
+
+    resources:
+      limits:
+        cpu: 300m
+        memory: 128Mi
+      requests:
+        cpu: 100m
+        memory: 64Mi
+
+    tolerations:
+      - key: "monitoring"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+
+    antiAffinity:
+      enabled: true
+
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 1
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                    - background-controller
+            topologyKey: kubernetes.io/hostname
+
+
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: "kubernetes.io/hostname"
+                operator: In
+                values:
+                  - capi-ha-monitoring000000
+                  - capi-ha-monitoring000001
+
+    securityContext:
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+
+    metricsService:
+      create: true
+      port: 8000
+
+    networkPolicy:
+      enabled: false
+      ingressFrom: []
+
+    serviceMonitor:
+      enabled: true
+      interval: 60s
+      scrapeTimeout: 30s
+
+    server:
+      port: 9443
+
+  cleanupController:
+    enabled: true
+    rbac:
+      create: true
+
+    replicas: 1
+    server:
+      port: 9443
+    webhookServer:
+      port: 9443
+
+    resources:
+      limits:
+        cpu: 300m
+        memory: 128Mi
+      requests:
+        cpu: 100m
+        memory: 64Mi
+
+    startupProbe:
+      httpGet:
+        path: /health/liveness
+        port: 9443
+        scheme: HTTPS
+      failureThreshold: 20
+      initialDelaySeconds: 2
+      periodSeconds: 6
+
+    livenessProbe:
+      httpGet:
+        path: /health/liveness
+        port: 9443
+        scheme: HTTPS
+      initialDelaySeconds: 15
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 2
+      successThreshold: 1
+
+    readinessProbe:
+      httpGet:
+        path: /health/readiness
+        port: 9443
+        scheme: HTTPS
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 6
+      successThreshold: 1
+
+    tolerations:
+      - key: "monitoring"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+
+    antiAffinity:
+      enabled: true
+
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 1
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                    - cleanup-controller
+            topologyKey: kubernetes.io/hostname
+
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: "kubernetes.io/hostname"
+                operator: In
+                values:
+                  - capi-ha-monitoring000000
+                  - capi-ha-monitoring000001
+
+    securityContext:
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+
+    service:
+      port: 443
+    metricsService:
+      create: true
+      port: 8000
+
+    networkPolicy:
+      enabled: false
+
+      ingressFrom: []
+
+    serviceMonitor:
+      enabled: true
+      interval: 60s
+      scrapeTimeout: 30s
+
+  reportsController:
+    enabled: true
+    rbac:
+      create: true
+      createViewRoleBinding: true
+      viewRoleName: view
+
+    replicas: 1
+
+    resources:
+      limits:
+        cpu: 300m
+        memory: 128Mi
+      requests:
+        cpu: 100m
+        memory: 64Mi
+
+    tolerations:
+      - key: "monitoring"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+
+    antiAffinity:
+      enabled: true
+
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 1
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                    - reports-controller
+            topologyKey: kubernetes.io/hostname
+
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: "kubernetes.io/hostname"
+                operator: In
+                values:
+                  - capi-ha-monitoring000000
+                  - capi-ha-monitoring000001
+
+    securityContext:
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+
+    metricsService:
+      create: true
+      port: 8000
+
+    networkPolicy:
+      enabled: false
+      ingressFrom: []
+
+    serviceMonitor:
+      enabled: true
+      interval: 60s
+      scrapeTimeout: 30s
+
+    sanityChecks: true

@@ -1,0 +1,6 @@
+dependencies:
+- name: ambient
+  repository: https://istio-release.storage.googleapis.com/charts
+  version: 1.26.0-rc.0
+digest: sha256:ce85d5f6bca68f9f30046dd5fc6d4a491c9af743974bc83a0b15092a4040859a
+generated: "2025-05-02T21:09:30.0907055+03:00"

@@ -1,0 +1,11 @@
+apiVersion: v2
+name: calico
+description: A chart for Calico CNI installation
+type: application
+version: 3.29.3
+appVersion: "3.29.3"
+
+dependencies:
+- name: tigera-operator
+  version: 3.29.3
+  repository: https://docs.projectcalico.org/charts/

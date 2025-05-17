@@ -1,0 +1,11 @@
+schedule: "0 1 * * *"
+
+
+# Define applications by their name, namespace and resource type (StatefulSet, Deployment or DaemonSet). For example:
+applications:
+  - name: argocd-server
+    namespace: argocd
+    resourceType: Deployment
+  - name: argocd-application-controller
+    namespace: argocd
+    resourceType: StatefulSet

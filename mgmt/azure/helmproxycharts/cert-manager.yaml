@@ -1,0 +1,189 @@
+apiVersion: addons.cluster.x-k8s.io/v1alpha1
+kind: HelmChartProxy
+metadata:
+  name: cert-manager
+  namespace: capi-ha
+spec:
+  clusterSelector:
+    matchLabels:
+      eitsCluster: enabled
+  repoURL: https://charts.jetstack.io
+  chartName: cert-manager
+  version: v1.17.0
+  releaseName: cert-manager
+  namespace: cert-manager
+  valuesTemplate: |
+    crds:
+      enabled: true
+      keep: true
+    replicaCount: 1
+
+    enableCertificateOwnerRef: false
+    dns01RecursiveNameservers: "1.1.1.1:53,8.8.8.8:53"
+    dns01RecursiveNameserversOnly: true
+    disableAutoApproval: false
+    approveSignerNames:
+    - issuers.cert-manager.io/*
+    - clusterissuers.cert-manager.io/*
+
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      readOnlyRootFilesystem: true
+    nodeSelector:
+      kubernetes.io/os: linux
+
+    resources:
+      limits:
+        cpu: 200m
+        memory: 500Mi
+      requests:
+        cpu: 10m
+        memory: 90Mi
+    tolerations:
+      - key: "general"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: "kubernetes.io/hostname"
+              operator: In
+              values:
+                - capi-ha-general000000
+                - capi-ha-general000001
+
+    livenessProbe:
+      enabled: true
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 15
+      successThreshold: 1
+      failureThreshold: 8
+
+    enableServiceLinks: false
+
+    # +docs:section=Prometheus
+
+    prometheus:
+      enabled: true
+      servicemonitor:
+        enabled: false
+        prometheusInstance: default
+        targetPort: 9402    # Note that you can not enable both PodMonitor and ServiceMonitor as they are mutually exclusive. Enabling both will result in an error.
+
+    webhook:
+      replicaCount: 1
+      timeoutSeconds: 30
+      resources:
+        limits:
+          cpu: 100m
+          memory: 200Mi
+        requests:
+          cpu: 1m
+          memory: 20Mi
+      livenessProbe:
+        failureThreshold: 3
+        initialDelaySeconds: 60
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+
+      readinessProbe:
+        failureThreshold: 3
+        initialDelaySeconds: 5
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 1
+
+      tolerations:
+        - key: "general"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: "kubernetes.io/hostname"
+                operator: In
+                values:
+                - capi-ha-general000000
+                - capi-ha-general000001
+      networkPolicy:
+        enabled: true
+
+        ingress:
+        - from:
+          - ipBlock:
+              cidr: 0.0.0.0/0
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: kube-prometheus-stack
+          ports:
+            - protocol: TCP
+              port: 9402
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: argocd
+        - from:
+            - ipBlock:
+                cidr: 192.168.0.0/16
+            - ipBlock:
+                cidr: 10.0.0.0/22
+          ports:
+            - protocol: TCP
+              port: 15008
+        egress:
+        - ports:
+          - port: 80
+            protocol: TCP
+          - port: 443
+            protocol: TCP
+          - port: 53
+            protocol: TCP
+          - port: 53
+            protocol: UDP
+          - port: 6443
+            protocol: TCP
+          to:
+          - ipBlock:
+              cidr: 0.0.0.0/0
+
+    cainjector:
+      enabled: true
+      replicaCount: 1
+      resources:
+        limits:
+          cpu: 100m
+          memory: 200Mi
+        requests:
+          cpu: 3m
+          memory: 70Mi
+
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: "kubernetes.io/hostname"
+                operator: In
+                values:
+                - capi-ha-general000000
+                - capi-ha-general000001
+
+      tolerations:
+        - key: "general"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+
+    enabled: true

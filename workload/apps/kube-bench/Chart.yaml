@@ -1,0 +1,13 @@
+
+
+apiVersion: v2
+name: kube-bench
+description: A chart for kube-bench installation
+type: application
+version: 0.1.17
+appVersion: "0.1.17"
+
+dependencies:
+- name: kube-bench
+  version: 0.1.17
+  repository: https://raw.githubusercontent.com/deliveryhero/helm-charts/refs/heads/master/
