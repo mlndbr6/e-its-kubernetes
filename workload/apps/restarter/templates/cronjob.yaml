@@ -14,7 +14,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: restarter
-              image: bitnami/kubectl:latest
+              image: bitnami/kubectl:1.33.0
               command:
                 - /bin/sh
                 - -c
