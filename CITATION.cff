@@ -21,4 +21,26 @@ keywords:
   - e-its
   - kubernetes
   - cluster-api
+  - helm
+  - argocd
+  - external-secrets-operator
+  - external-dns
+  - azure-disk-csi
+  - calico
+  - cert-manager
+  - cloud-provider-azure
+  - haproxy-ingress-controller
+  - istio
+  - kiali
+  - kube-bench
+  - kyverno
+  - grafana
+  - alloy
+  - loki
+  - kube-prometheus-stack
+  - velero
+  - metrics-server
+  - clusterresourceset
+  - helmchartproxy
+  - restarter
 license: Apache-2.0
