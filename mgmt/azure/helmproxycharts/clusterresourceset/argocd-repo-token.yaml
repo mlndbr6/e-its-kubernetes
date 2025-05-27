@@ -2,7 +2,7 @@ apiVersion: addons.cluster.x-k8s.io/v1beta1
 kind: ClusterResourceSet
 metadata:
   name: git-repository
-  namespace: argocd
+  namespace: capi-ha
 spec:
   strategy: Reconcile
   clusterSelector:
@@ -11,3 +11,28 @@ spec:
   resources:
     - name: git-repository
       kind: Secret
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: git-repository
+  namespace: capi-ha
+type: addons.cluster.x-k8s.io/resource-set
+stringData:
+  argocd.yaml: |-
+    apiVersion: v1
+    stringData:
+      password: ${token}
+      project: default
+      type: git
+      url: https://github.com/mlndbr6/e-its-kubernetes.git
+      username: ${userName}
+    kind: Secret
+    metadata:
+      annotations:
+        managed-by: argocd.argoproj.io
+      labels:
+        argocd.argoproj.io/secret-type: repository
+      name: git-repository
+      namespace: argocd
+    type: Opaque
